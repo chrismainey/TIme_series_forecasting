@@ -1,0 +1,38 @@
+---
+title: "Exercise 1: Time Series Forecasting"
+author: "Chris Mainey"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load data
+
+```{r loaddt}
+ae_uk <- read.csv("data/ae_uk.csv")
+head(ae_uk)
+```
+
+
+
+```{r loadpackages, message=FALSE, include=FALSE}
+lapply(c('ggplot2', 'dplyr', 'tidyr', 'lubridate', "tsibble", "scales"),require, character.only=TRUE)
+
+```
+
+```{r visualize, warning=FALSE}
+ae_uk %>% 
+  select(gender, type_injury) %>% 
+  #add_count(name = "ct") %>% 
+  gather("key", "value") %>% 
+  mutate(key = factor(key, levels = c("gender", "type_injury"), ordered = TRUE),
+         value = factor(value, levels=c("male", "female", "minor", "major"), ordered = TRUE)) %>%   ggplot(aes(x=value, fill=key))+
+    geom_bar(alpha=0.5, col=1)
+    
+
+```
+
+  
