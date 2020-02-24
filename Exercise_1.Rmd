@@ -12,7 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load data
 
 ```{r loaddt}
-ae_uk <- read.csv("data/ae_uk.csv")
+#ae_uk <- read.csv("data/ae_uk.csv")
+#ae_uk$arrival_time <- datetime(ae_uk$arrival_time)
+library(readr)
+ae_uk <- read_csv("data/ae_uk.csv", 
+                  col_types = cols(arrival_time = col_datetime(format = "%d/%m/%Y %H:%M")))
+
 head(ae_uk)
 ```
 
@@ -35,4 +40,31 @@ ae_uk %>%
 
 ```
 
+
+## Make tsibble
+
+```{r duplicated}
+
+ae_uk %>%  duplicated() %>% sum() # check
+ae_wd <- ae_uk %>% distinct()
+
+ae_tsb <- ae_wd %>%  #create tsibble
+  as_tsibble(key=c(gender, type_injury), index = arrival_time, regular=FALSE)
+
+# 
+ae_hourly <- ae_tsb %>% group_by(gender, type_injury) %>% 
+  index_by(arrival_1h = floor_date(arrival_time, "1 hour")) %>% 
+             summarise(n_attendances = n())
+
+           
+           
+has_gaps(ae_hourly)
+scan_gaps(ae_hourly)
+count_gaps(ae_hourly)
+
+ae_hourly <-ae_tsb %>%  group_by(gender, type_injury) %>% 
+  index_by(arrival_1h = floor_date(arrival_time, "1 hour")) %>% 
+  summarise(n_attendances = n()) %>% fill_gaps(n_attendances=0L) %>%  ungroup()
+
+```
   
