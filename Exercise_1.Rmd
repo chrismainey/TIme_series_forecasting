@@ -24,7 +24,7 @@ head(ae_uk)
 
 
 ```{r loadpackages, message=FALSE, include=FALSE}
-lapply(c('ggplot2', 'dplyr', 'tidyr', 'lubridate', "tsibble", "scales"),require, character.only=TRUE)
+lapply(c("ggplot2", "tidyr", "dplyr", "lubridate", "tsibble", "scales"),require, character.only=TRUE)
 
 ```
 
@@ -54,7 +54,7 @@ ae_tsb <- ae_wd %>%  #create tsibble
 # 
 ae_hourly <- ae_tsb %>% group_by(gender, type_injury) %>% 
   index_by(arrival_1h = floor_date(arrival_time, "1 hour")) %>% 
-             summarise(n_attendances = n())
+             summarise(n_attendance = n())
 
            
            
@@ -64,7 +64,85 @@ count_gaps(ae_hourly)
 
 ae_hourly <-ae_tsb %>%  group_by(gender, type_injury) %>% 
   index_by(arrival_1h = floor_date(arrival_time, "1 hour")) %>% 
-  summarise(n_attendances = n()) %>% fill_gaps(n_attendances=0L) %>%  ungroup()
+  summarise(n_attendance = n()) %>% fill_gaps(n_attendance=0L) %>%  ungroup()
+
+ae_daily <-ae_tsb %>%  group_by(type_injury) %>% 
+  filter(type_injury == "major" ) %>% 
+  index_by(arrival_1d = day(arrival_time)) %>% 
+  summarise(n_attendance = n()) %>% fill_gaps(n_attendance=0L) %>%  ungroup()
+
 
 ```
-  
+
+## Plots
+
+```{r autoplot1}
+library(fabletools)
+ae_hourly %>% autoplot(n_attendance)
+
+```
+
+```{r plots2, eval=FALSE}
+#library(feasts)
+
+# None of this runs, FIX IT!
+
+ae_hourly %>% gg_season(period = "month")
+
+
+ae_hourly %>% 
+  filter_index("2014"~"2016") %>% 
+  gg_season(period = "month")
+
+
+ae_daily %>%  gg_tsdisplay()
+
+ae_daily %>%  features (n_attendance, ljun_box, dof = 0)
+
+ae_daily <- ae_hourly %>% 
+  index_by(year_day=as_date(arrival_1h)) %>% 
+  summarise(n_attendance=sum(n_attendance))
+
+
+```
+
+
+---
+# Simple forcasting
+
+```{r simple1}
+library(fable)
+
+ae_fit <- ae_daily %>% 
+  model( mean = MEAN(n_attendance)
+         , naive = NAIVE(n_attendance)
+         , snaive = SNAIVE(n_attendance, lag="year")
+         , drift = RW(n_attendance ~ drift())
+        )
+
+ae_fit %>% glance()
+ae_fit
+
+```
+
+```{r forecast}
+library(fabletools)
+library(fable)
+ae_fc <- ae_fit %>% 
+  forecast(h = "30 days")
+
+# Plot
+ae_fc %>% autoplot(filter_index(ae_daily, "2016"~.), level=NULL)
+
+```
+
+## Fit and residual
+```{r fitresid}
+# Fitted
+ae_fit %>% augment() %>% filter(.model=="snaive") %>%  select(.fitted) %>%  autoplot()
+# Residuals
+ae_fit %>% augment() %>% filter(.model=="snaive") %>%  select(.resid) %>% plot()
+
+
+
+```
